@@ -1,9 +1,16 @@
-spring.application.name=common-service
-server.port=8083
+spring:
+  application:
+    name: common-service
 
-# Eureka Client 설정
-eureka.instance.hostname=${EUREKA_INSTANCE_HOSTNAME:common-service}
-eureka.instance.prefer-ip-address=false
-eureka.client.service-url.defaultZone=${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
-eureka.client.register-with-eureka=true
-eureka.client.fetch-registry=true
+server:
+  port: 8083
+
+eureka:
+  instance:
+    hostname: ${EUREKA_INSTANCE_HOSTNAME:common-service}
+    prefer-ip-address: false
+  client:
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true

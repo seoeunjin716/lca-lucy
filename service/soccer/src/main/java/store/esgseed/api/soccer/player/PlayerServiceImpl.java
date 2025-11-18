@@ -31,8 +31,8 @@ public class PlayerServiceImpl implements PlayerService {
     }
 
     @Override
-    public Messenger delete(Long id) {
-        playerRepository.delete(id);
+    public Messenger delete(long id) {
+        playerRepository.deleteById(id);
         return Messenger.builder().code(200).message("성공").build();
     }
 
@@ -55,7 +55,7 @@ public class PlayerServiceImpl implements PlayerService {
     }
 
     @Override
-    public Messenger findById(Long id) {
+    public Messenger findById(long id) {
         playerRepository.findById(id);
         return Messenger.builder().code(200).message("성공").build();
     }
@@ -64,5 +64,15 @@ public class PlayerServiceImpl implements PlayerService {
     public Messenger findAll() {
         playerRepository.findAll();
         return Messenger.builder().code(200).message("성공").build();
+    }
+
+    @Override
+    public Messenger searchByKeyword(String keyword) {
+        var players = playerRepository.findByPlayerNameContainingOrNicknameContaining(keyword, keyword);
+        return Messenger.builder()
+            .code(200)
+            .message("검색 완료: " + keyword)
+            .data(players)
+            .build();
     }
 }
