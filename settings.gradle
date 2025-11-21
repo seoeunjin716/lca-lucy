@@ -7,6 +7,6 @@ include 'server:eureka'
 
 // Service modules
 include 'service:common'
-include 'service:esgseed'
+include 'service:lca'
 include 'service:soccer'
 include 'service:user'

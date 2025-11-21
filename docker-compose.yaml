@@ -3,19 +3,19 @@ services:
   # PostgreSQL 데이터베이스
   postgres:
     image: postgres:16-alpine
-    container_name: esgseed
+    container_name: lca
     ports:
       - "5432:5432"
     networks:
       - spring-network
     environment:
-      POSTGRES_DB: esgseeddb
-      POSTGRES_USER: esgseed
-      POSTGRES_PASSWORD: esgseed1234
+      POSTGRES_DB: lcadb
+      POSTGRES_USER: lca
+      POSTGRES_PASSWORD: lca1234
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U esgseed -d esgseeddb"]
+      test: ["CMD-SHELL", "pg_isready -U lca -d lcadb"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -143,9 +143,9 @@ services:
       - EUREKA_INSTANCE_HOSTNAME=soccer-service
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
       - SPRING_CLOUD_CONFIG_URI=http://config-server:8888
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/esgseeddb
-      - SPRING_DATASOURCE_USERNAME=esgseed
-      - SPRING_DATASOURCE_PASSWORD=esgseed1234
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/lcadb
+      - SPRING_DATASOURCE_USERNAME=lca
+      - SPRING_DATASOURCE_PASSWORD=lca1234
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8082/"]
