@@ -1,0 +1,12 @@
+rootProject.name = 'api'
+
+// Server modules
+include 'server:config'
+include 'server:discovery'
+include 'server:eureka'
+
+// Service modules
+include 'service:common'
+include 'service:lca'
+include 'service:soccer'
+include 'service:user'

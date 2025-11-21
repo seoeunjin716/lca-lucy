@@ -1,0 +1,69 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: discovery
+
+  cloud:
+    config:
+      enabled: false   # Config Server 체크 비활성화
+
+    gateway:
+      # CORS 설정
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins:
+              - "http://localhost:3000"
+              - "http://ui-server:3000"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders:
+              - "*"
+            allowCredentials: true
+            maxAge: 3600
+      
+      discovery:
+        locator:
+          enabled: true                 # Eureka 서비스 자동 탐색
+          lower-case-service-id: true   # 소문자 경로 허용 (/user-service)
+      routes:
+        - id: user-service
+          uri: lb://user-service        # LoadBalancer 통해 user-service로 연결
+          predicates:
+            - Path=/user-service/**
+          filters:
+            - StripPrefix=1
+        
+        - id: soccer-service
+          uri: lb://SOCCER-SERVICE      # LoadBalancer 통해 soccer-service로 연결
+          predicates:
+            - Path=/soccer-service/**
+          filters:
+            - StripPrefix=1             # /soccer-service 제거하고 전달
+            - AddRequestHeader=X-Gateway, discovery-server
+        
+        - id: soccer-short
+          uri: lb://SOCCER-SERVICE      # /soccer 짧은 경로도 지원
+          predicates:
+            - Path=/soccer/**
+          filters:
+            - StripPrefix=1             # /soccer 제거하고 전달
+            - AddRequestHeader=X-Gateway, discovery-server
+
+eureka:
+  instance:
+    hostname: ${EUREKA_INSTANCE_HOSTNAME:discovery-server}
+    prefer-ip-address: false
+  client:
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+
+

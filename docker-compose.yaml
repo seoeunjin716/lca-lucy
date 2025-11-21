@@ -1,0 +1,211 @@
+services:
+
+  # PostgreSQL 데이터베이스
+  postgres:
+    image: postgres:16-alpine
+    container_name: lca
+    ports:
+      - "5432:5432"
+    networks:
+      - spring-network
+    environment:
+      POSTGRES_DB: lcadb
+      POSTGRES_USER: lca
+      POSTGRES_PASSWORD: lca1234
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lca -d lcadb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  # Eureka 서비스 레지스트리 서버
+  eureka-server:
+    build:
+      context: ./server/eureka
+      dockerfile: Dockerfile
+    container_name: eureka-server
+    ports:
+      - "8761:8761"
+    networks:
+      - spring-network
+    environment:
+      - JAVA_OPTS=-Xmx512m -Xms256m
+      - JAVA_VERSION=21
+      - EUREKA_INSTANCE_HOSTNAME=eureka-server
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+  # Config 서버
+  config-server:
+    build:
+      context: ./server/config
+      dockerfile: Dockerfile
+    container_name: config-server
+    ports:
+      - "8888:8888"
+    networks:
+      - spring-network
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    environment:
+      - JAVA_OPTS=-Xmx512m -Xms256m
+      - JAVA_VERSION=21
+      - EUREKA_INSTANCE_HOSTNAME=config-server
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  # Discovery (API Gateway)
+  discovery-server:
+    build:
+      context: ./server/discovery
+      dockerfile: Dockerfile
+    container_name: discovery-server
+    ports:
+      - "8080:8080"
+    networks:
+      - spring-network
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    environment:
+      - JAVA_OPTS=-Xmx512m -Xms256m
+      - JAVA_VERSION=21
+      - EUREKA_INSTANCE_HOSTNAME=discovery-server
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  # User 서비스
+  user-service:
+    build:
+      context: ./service/user
+      dockerfile: Dockerfile
+    container_name: user-service
+    ports:
+      - "8081:8081"
+    networks:
+      - spring-network
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+    environment:
+      - JAVA_OPTS=-Xmx512m -Xms256m
+      - JAVA_VERSION=21
+      - EUREKA_INSTANCE_HOSTNAME=user-service
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SPRING_CLOUD_CONFIG_URI=http://config-server:8888
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  # Soccer 서비스
+  soccer-service:
+    build:
+      context: ./service/soccer
+      dockerfile: Dockerfile
+    container_name: soccer-service
+    ports:
+      - "8082:8082"
+    networks:
+      - spring-network
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      - JAVA_OPTS=-Xmx512m -Xms256m
+      - JAVA_VERSION=21
+      - EUREKA_INSTANCE_HOSTNAME=soccer-service
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SPRING_CLOUD_CONFIG_URI=http://config-server:8888
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/lcadb
+      - SPRING_DATASOURCE_USERNAME=lca
+      - SPRING_DATASOURCE_PASSWORD=lca1234
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  # Common 서비스
+  common-service:
+    build:
+      context: ./service/common
+      dockerfile: Dockerfile
+    container_name: common-service
+    ports:
+      - "8083:8083"
+    networks:
+      - spring-network
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+    environment:
+      - JAVA_OPTS=-Xmx512m -Xms256m
+      - JAVA_VERSION=21
+      - EUREKA_INSTANCE_HOSTNAME=common-service
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SPRING_CLOUD_CONFIG_URI=http://config-server:8888
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  # UI 서버 (Next.js)
+  ui-server:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ui-server
+    ports:
+      - "3000:3000"
+    networks:
+      - spring-network
+    depends_on:
+      - discovery-server
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://discovery-server:8080
+    restart: unless-stopped
+
+
+networks:
+  spring-network:
+    name: spring-network
+    driver: bridge
+
+volumes:
+  postgres-data:
+    driver: local
+

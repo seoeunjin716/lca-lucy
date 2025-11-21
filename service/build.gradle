@@ -1,0 +1,9 @@
+// Service 그룹 프로젝트 - jar 생성 안 함
+bootJar {
+    enabled = false
+}
+
+jar {
+    enabled = false
+}
+

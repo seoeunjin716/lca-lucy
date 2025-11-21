@@ -1,0 +1,15 @@
+server:
+  port: 8761
+
+spring:
+  application:
+    name: eureka-server
+
+eureka:
+  instance:
+    hostname: ${EUREKA_INSTANCE_HOSTNAME:localhost}
+  client:
+    register-with-eureka: false    # 자기 자신은 등록 안 함
+    fetch-registry: false          # 다른 서비스 목록도 가져오지 않음
+    service-url:
+      defaultZone: http://${eureka.instance.hostname}:${server.port}/eureka/
