@@ -5,6 +5,19 @@ spring:
   application:
     name: discovery
 
+  # Redis 설정 (리액티브)
+  data:
+    redis:
+      host: ${SPRING_REDIS_HOST:localhost}
+      port: ${SPRING_REDIS_PORT:6379}
+      password: ${SPRING_REDIS_PASSWORD:}
+      timeout: 3000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 2
+
   cloud:
     config:
       enabled: false   # Config Server 체크 비활성화
@@ -28,10 +41,19 @@ spring:
             allowCredentials: true
             maxAge: 3600
       
+      # HTTP 클라이언트 설정 (논블로킹 최적화)
+      httpclient:
+        connect-timeout: 3000          # 연결 타임아웃 3초
+        response-timeout: 10s          # 응답 타임아웃 10초
+        pool:
+          type: elastic                # 탄력적 커넥션 풀
+          max-idle-time: 30s           # 유휴 연결 유지 시간
+      
       discovery:
         locator:
           enabled: true                 # Eureka 서비스 자동 탐색
           lower-case-service-id: true   # 소문자 경로 허용 (/user-service)
+      
       routes:
         - id: user-service
           uri: lb://user-service        # LoadBalancer 통해 user-service로 연결
@@ -39,6 +61,15 @@ spring:
             - Path=/user-service/**
           filters:
             - StripPrefix=1
+            - name: CircuitBreaker      # 서킷 브레이커 적용
+              args:
+                name: userServiceCircuitBreaker
+                fallbackUri: forward:/fallback/user-service
+            - name: RequestRateLimiter  # Rate Limiting
+              args:
+                redis-rate-limiter.replenishRate: 10    # 초당 10개 요청
+                redis-rate-limiter.burstCapacity: 20     # 최대 버스트 20개
+                redis-rate-limiter.requestedTokens: 1    # 요청당 토큰 1개
         
         - id: soccer-service
           uri: lb://SOCCER-SERVICE      # LoadBalancer 통해 soccer-service로 연결
@@ -47,6 +78,15 @@ spring:
           filters:
             - StripPrefix=1             # /soccer-service 제거하고 전달
             - AddRequestHeader=X-Gateway, discovery-server
+            - name: CircuitBreaker      # 서킷 브레이커 적용
+              args:
+                name: soccerServiceCircuitBreaker
+                fallbackUri: forward:/fallback/soccer-service
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 20
+                redis-rate-limiter.burstCapacity: 40
+                redis-rate-limiter.requestedTokens: 1
         
         - id: soccer-short
           uri: lb://SOCCER-SERVICE      # /soccer 짧은 경로도 지원
@@ -55,6 +95,49 @@ spring:
           filters:
             - StripPrefix=1             # /soccer 제거하고 전달
             - AddRequestHeader=X-Gateway, discovery-server
+            - name: CircuitBreaker
+              args:
+                name: soccerServiceCircuitBreaker
+                fallbackUri: forward:/fallback/soccer-service
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 20
+                redis-rate-limiter.burstCapacity: 40
+                redis-rate-limiter.requestedTokens: 1
+
+# Resilience4j Circuit Breaker 설정
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        slidingWindowSize: 10                    # 슬라이딩 윈도우 크기
+        minimumNumberOfCalls: 5                  # 최소 호출 횟수
+        failureRateThreshold: 50                 # 실패율 50% 이상 시 오픈
+        waitDurationInOpenState: 10s             # OPEN 상태 유지 시간
+        permittedNumberOfCallsInHalfOpenState: 3 # HALF_OPEN에서 테스트 호출 수
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+    instances:
+      userServiceCircuitBreaker:
+        baseConfig: default
+      soccerServiceCircuitBreaker:
+        baseConfig: default
+  
+  timelimiter:
+    configs:
+      default:
+        timeoutDuration: 5s              # 타임아웃 5초
+
+# Actuator 설정 (모니터링)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway,metrics,circuitbreakers
+  endpoint:
+    health:
+      show-details: always
+    gateway:
+      enabled: true
 
 eureka:
   instance:

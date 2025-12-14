@@ -22,6 +22,31 @@ services:
       start_period: 30s
     restart: unless-stopped
 
+  # Redis 캐시 및 세션 저장소
+  redis:
+    image: redis:7-alpine
+    container_name: redis-server
+    ports:
+      - "6379:6379"
+    networks:
+      - spring-network
+    command: >
+      redis-server
+      --requirepass lca1234
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "lca1234", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
   # Eureka 서비스 레지스트리 서버
   eureka-server:
     build:
@@ -67,7 +92,7 @@ services:
       retries: 5
       start_period: 40s
 
-  # Discovery (API Gateway)
+  # Discovery (API Gateway) - WebFlux 기반 논블로킹
   discovery-server:
     build:
       context: ./server/discovery
@@ -80,11 +105,16 @@ services:
     depends_on:
       eureka-server:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - JAVA_OPTS=-Xmx512m -Xms256m
       - JAVA_VERSION=21
       - EUREKA_INSTANCE_HOSTNAME=discovery-server
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SPRING_REDIS_HOST=redis-server
+      - SPRING_REDIS_PORT=6379
+      - SPRING_REDIS_PASSWORD=lca1234
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
       interval: 10s
@@ -107,12 +137,17 @@ services:
         condition: service_healthy
       config-server:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - JAVA_OPTS=-Xmx512m -Xms256m
       - JAVA_VERSION=21
       - EUREKA_INSTANCE_HOSTNAME=user-service
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
       - SPRING_CLOUD_CONFIG_URI=http://config-server:8888
+      - SPRING_REDIS_HOST=redis-server
+      - SPRING_REDIS_PORT=6379
+      - SPRING_REDIS_PASSWORD=lca1234
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/"]
       interval: 10s
@@ -137,6 +172,8 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - JAVA_OPTS=-Xmx512m -Xms256m
       - JAVA_VERSION=21
@@ -147,6 +184,9 @@ services:
       - SPRING_DATASOURCE_USERNAME=lca
       - SPRING_DATASOURCE_PASSWORD=lca1234
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - SPRING_REDIS_HOST=redis-server
+      - SPRING_REDIS_PORT=6379
+      - SPRING_REDIS_PASSWORD=lca1234
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8082/"]
       interval: 10s
@@ -169,12 +209,17 @@ services:
         condition: service_healthy
       config-server:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - JAVA_OPTS=-Xmx512m -Xms256m
       - JAVA_VERSION=21
       - EUREKA_INSTANCE_HOSTNAME=common-service
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
       - SPRING_CLOUD_CONFIG_URI=http://config-server:8888
+      - SPRING_REDIS_HOST=redis-server
+      - SPRING_REDIS_PORT=6379
+      - SPRING_REDIS_PASSWORD=lca1234
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8083/"]
       interval: 10s
@@ -207,5 +252,7 @@ networks:
 
 volumes:
   postgres-data:
+    driver: local
+  redis-data:
     driver: local
 

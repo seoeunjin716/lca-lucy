@@ -24,18 +24,18 @@ public class SoccerSearchFacadeImpl implements SoccerSearchFacade {
     @Override
     public Messenger findByKeyword(String keyword) {
         System.out.println("=================================");
-        System.out.println("검?�어: " + keyword);
+        System.out.println("검?�어: " + keyword);
         System.out.println("=================================");
         
-        // TODO: 추후 ?�요???�라 검??결과�??�쳐??반환
-        // ?�제:
+        // TODO: 추후 요구사항에 따라 검색 결과를 반환
+        // ?�제:
         // List<PlayerDTO> players = playerService.findByKeyword(keyword);
         // List<ScheduleDTO> schedules = scheduleService.findByKeyword(keyword);
         // List<StadiumDTO> stadiums = stadiumService.findByKeyword(keyword);
         // List<TeamDTO> teams = teamService.findByKeyword(keyword);
         
         return Messenger.builder()
-                .message("검?�어 '" + keyword + "' ?�청 ?�료")
+                .message("검?�어 '" + keyword + "' ?�청 ?�료")
                 .build();
     }
 }
